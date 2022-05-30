@@ -5,14 +5,14 @@
 #include "logger.hpp"
 #include "trezor/usb.hpp"
 
-#define TRELOCK_LIBUSB_CHECK(error_return, ...)			\
+#define MACER_LIBUSB_CHECK(error_return, ...)			\
   do								\
   {								\
     const auto rc = __VA_ARGS__ ;				\
     if (rc < 0)							\
     {								\
       const std::error_code code{usb::error(rc)};		\
-      TRELOCK_LOG_ERROR(code);					\
+      MACER_LOG_ERROR(code);					\
       return error_return;					\
     }								\
   } while (0)
@@ -67,24 +67,24 @@ namespace
     device_ptr handle;
     {
       libusb_device_handle* temp = nullptr;
-      TRELOCK_LIBUSB_CHECK(code, libusb_open(std::addressof(dev), std::addressof(temp)));
-      TRELOCK_LIBUSB_DEFENSIVE(temp);
+      MACER_LIBUSB_CHECK(code, libusb_open(std::addressof(dev), std::addressof(temp)));
+      MACER_LIBUSB_DEFENSIVE(temp);
       handle.reset(temp);
     }
     libusb_set_auto_detach_kernel_driver(handle.get(), true);
     expect<usb::interface> selected = usb::interface{};
     {
       libusb_config_descriptor* descriptor = nullptr;
-      TRELOCK_LIBUSB_CHECK(code, libusb_get_active_config_descriptor(std::addressof(dev), std::addressof(descriptor)));
-      TRELOCK_LIBUSB_DEFENSIVE(descriptor);
-      TRELOCK_LIBUSB_DEFENSIVE(descriptor->interface);
+      MACER_LIBUSB_CHECK(code, libusb_get_active_config_descriptor(std::addressof(dev), std::addressof(descriptor)));
+      MACER_LIBUSB_DEFENSIVE(descriptor);
+      MACER_LIBUSB_DEFENSIVE(descriptor->interface);
       
       selected = T::select({descriptor->interface, descriptor->bNumInterfaces});
       if (!selected)
 	return selected.error();
     }
 
-    TRELOCK_LIBUSB_CHECK(code, libusb_claim_interface(handle.get(), selected->number));
+    MACER_LIBUSB_CHECK(code, libusb_claim_interface(handle.get(), selected->number));
     usb::device real{std::move(handle), selected->in_endpoint, selected->out_endpoint};
     return T::run(real, info);
   }
@@ -100,7 +100,7 @@ namespace
     {
       int actual = 0;
       const std::size_t this_send = std::min(max_send, bytes.size());
-      TRELOCK_LIBUSB_CHECK(
+      MACER_LIBUSB_CHECK(
         code, libusb_interrupt_transfer(
 	  dev, endpoint, bytes.data(), this_send, std::addressof(actual), timeout.count()
         )
@@ -134,7 +134,7 @@ namespace usb
   context make_context()
   {
     libusb_context* handle = nullptr;
-    TRELOCK_LIBUSB_CHECK(nullptr, libusb_init(std::addressof(handle)));
+    MACER_LIBUSB_CHECK(nullptr, libusb_init(std::addressof(handle)));
     return context{handle};
   }
 
@@ -152,14 +152,14 @@ namespace usb
     std::unique_ptr<libusb_device*[], device_list_free> list;
     {
       libusb_device** temp = nullptr;
-      TRELOCK_LIBUSB_CHECK(code, libusb_get_device_list(std::addressof(ctx), std::addressof(temp)));
+      MACER_LIBUSB_CHECK(code, libusb_get_device_list(std::addressof(ctx), std::addressof(temp)));
       list.reset(temp);
     }
      
     for (libusb_device** i = list.get(); i && *i; ++i)
     {
       libusb_device_descriptor descriptor{};
-      TRELOCK_LIBUSB_CHECK(code, libusb_get_device_descriptor(*i, std::addressof(descriptor)));
+      MACER_LIBUSB_CHECK(code, libusb_get_device_descriptor(*i, std::addressof(descriptor)));
       if (descriptor.idVendor == trezor::vendor_id)
       {
 	if (std::binary_search(std::begin(trezor::devices), std::end(trezor::devices), descriptor.idProduct))

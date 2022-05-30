@@ -52,7 +52,7 @@ namespace
     assert(offset < buffer.size());
     const std::size_t next = std::min(bytes.size(), buffer.size() - offset);
     std::memcpy(buffer.data() + offset, bytes.data(), next);
-    TRELOCK_CHECK(usb::write(dev, to_span(buffer), std::chrono::seconds{1}));
+    MACER_CHECK(usb::write(dev, to_span(buffer), std::chrono::seconds{1}));
     bytes.remove_prefix(next);
     return success();
   }
@@ -61,7 +61,7 @@ namespace
   expect<void> send_message(usb::device& dev, const T& message)
   {
     byte_slice bytes = wire::protobuf::to_bytes(message);
-    TRELOCK_PRECOND(bytes.size() <= std::numeric_limits<std::uint32_t>::max());
+    MACER_PRECOND(bytes.size() <= std::numeric_limits<std::uint32_t>::max());
 
     std::uint8_t buffer[64] = {'?', '#', '#', 0};
 
@@ -73,9 +73,9 @@ namespace
     buffer[7] = (bytes.size() >> 8) & 0xFF;
     buffer[8] = bytes.size() & 0xFF;
 
-    TRELOCK_CHECK(send_buffer(dev, bytes, buffer, 9));
+    MACER_CHECK(send_buffer(dev, bytes, buffer, 9));
     while (!bytes.empty())
-      TRELOCK_CHECK(send_buffer(dev, bytes, buffer, 1));
+      MACER_CHECK(send_buffer(dev, bytes, buffer, 1));
     return success();
   }
 
@@ -101,18 +101,18 @@ namespace
     fprintf(stderr, "  7 8 9\n");
     fprintf(stderr, "  4 5 6\n");
     fprintf(stderr, "  1 2 3\n");
-    TRELOCK_CHECK(send_password<trezor::pin_matrix_ack>(dev, "Trezor Pin"));
+    MACER_CHECK(send_password<trezor::pin_matrix_ack>(dev, "Trezor Pin"));
     return byte_slice{};
   }
   expect<byte_slice> handle_button(usb::device& dev, byte_slice&& bytes)
   {
     fprintf(stderr, "Check Trezor\n");
-    TRELOCK_CHECK(send_message(dev, trezor::button_ack{}));
+    MACER_CHECK(send_message(dev, trezor::button_ack{}));
     return byte_slice{};
   }
   expect<byte_slice> handle_passphrase(usb::device& dev, byte_slice&& bytes)
   {
-    TRELOCK_CHECK(send_password<trezor::passphrase_ack>(dev, "Trezor Passphrase:"));
+    MACER_CHECK(send_password<trezor::passphrase_ack>(dev, "Trezor Passphrase:"));
     return byte_slice{};
   }
   expect<byte_slice> handle_signature(usb::device&, byte_slice&& bytes)
@@ -152,7 +152,7 @@ namespace
   expect<byte_slice> read_message(usb::device& dev)
   {
     std::uint8_t buffer[64];
-    TRELOCK_CHECK(read_buffer(dev, buffer));
+    MACER_CHECK(read_buffer(dev, buffer));
     if (buffer[0] != '?' || buffer[1] != '#' || buffer[2] != '#')
       return {trezor::error::invalid_encoding};
 
@@ -172,7 +172,7 @@ namespace
 
     while (remaining)
     {
-      TRELOCK_CHECK(read_buffer(dev, buffer));
+      MACER_CHECK(read_buffer(dev, buffer));
       if (buffer[0] != '?')
 	return {trezor::error::invalid_encoding};
 
@@ -195,13 +195,13 @@ namespace trezor
   {
     for (const libusb_interface& intf : interfaces)
     {
-      TRELOCK_LIBUSB_DEFENSIVE(intf.altsetting);
+      MACER_LIBUSB_DEFENSIVE(intf.altsetting);
       for (unsigned i = 0; i < intf.num_altsetting; ++i)
       {
 	const libusb_interface_descriptor& descriptor = intf.altsetting[i];
 	if (descriptor.bInterfaceClass == LIBUSB_CLASS_HID)
 	{
-	  TRELOCK_LIBUSB_DEFENSIVE(descriptor.endpoint);
+	  MACER_LIBUSB_DEFENSIVE(descriptor.endpoint);
 	  std::uint8_t in = 0;
 	  std::uint8_t out = 0;
 	  for (unsigned j = 0; j < descriptor.bNumEndpoints; ++j)
@@ -230,7 +230,7 @@ namespace trezor
 	{"macer", info.user, info.host}, "macer_luks_drive", info.message, "ed25519"
       };
 
-      TRELOCK_CHECK(send_message(dev, request));
+      MACER_CHECK(send_message(dev, request));
     }
 
     // process messages until signed response is received

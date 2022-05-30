@@ -165,7 +165,7 @@ int main(int, const char* argv[])
     const expect<std::string> existing = password_prompt("Enter current password");
     if (!existing)
     {
-      TRELOCK_LOG_ERROR(existing.error());
+      MACER_LOG_ERROR(existing.error());
       return -1;
     }
     fwrite(existing->data(), 1, existing->size(), stdout);
@@ -182,7 +182,7 @@ int main(int, const char* argv[])
     secret = usb::run(*ctx, prog.info);
     if (!secret)
     {
-      TRELOCK_LOG_ERROR(secret.error());
+      MACER_LOG_ERROR(secret.error());
       return -1;
     }
     if (!secret->empty())
@@ -202,7 +202,7 @@ int main(int, const char* argv[])
     local = password_prompt("Local passphrase", prog.existing);
     if (!local)
     {
-      TRELOCK_LOG_ERROR(local.error());
+      MACER_LOG_ERROR(local.error());
       return -1;
     }
   }
