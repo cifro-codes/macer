@@ -9,7 +9,7 @@
 #include "expect.hpp"
 #include "span.hpp"
 
-#define TRELOCK_LIBUSB_DEFENSIVE(ptr)		\
+#define MACER_LIBUSB_DEFENSIVE(ptr)		\
   do						\
   {						\
     if (ptr == nullptr)				\

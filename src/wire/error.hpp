@@ -38,7 +38,7 @@
 #define WIRE_DLOG_THROW(code, ...)					\
   do									\
   {									\
-    TRELOCK_LOG_ERROR(code, ## __VA_ARGS__);				\
+    MACER_LOG_ERROR(code, ## __VA_ARGS__);				\
     throw ::wire::exception_t<decltype(code)>{code};			\
   }									\
   while (0)
