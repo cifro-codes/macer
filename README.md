@@ -1,4 +1,4 @@
-# Generate Secure and Recoverable Passwords Using Trezor
+ # Generate Secure and Recoverable Passwords Using Trezor
 
 macer generates deterministic passwords from the Bip-39 wordlist of length
 12 (128-bits), 18 (192 bits) or 24 (256-bits) derived from the Trezor seed and
@@ -294,5 +294,15 @@ generating a custom initrd script means you can probably solve this problem.
 
 ## Usage
 
-Run `macer --help | echo` to get options and descriptions. Self explanatory
+Run `macer --help` to get options and descriptions. Self explanatory
 if this README.md was read from beginning.
+
+```bash
+	--help, -h			List help
+	--existing, -e			Prompt for existing LUKS password for adding new key
+	--format, -f	[format]	Output format/strength -> legacy | binary | bip39-12 | bip39-18 | bip39-24
+	--host, -t	[hostname]	Identity hostname for password
+	--user, -u	[user]		Identity username for password
+	--message, -m	[message]	Message to display on device (legacy format only)
+	--password, -p			Prompt for local only password to append to stdout (more entropy)
+```
