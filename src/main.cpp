@@ -153,10 +153,10 @@ namespace
     {nullptr, "help", "\t\tList help", 'h'},
     {handle_existing, "existing", "\t\tPrompt for existing LUKS password for adding new key", 'e'},
     {handle_format, "format", "[format]\tOutput format/strength -> legacy | binary | bip39-12 | bip39-18 | bip39-24", 'f'},
-    {handle_host, "host", "[hostname]\tIdentity hostname for machine", 't'},
-    {handle_user, "user", "[user]\t\tIdentity username for machine", 'u'},
-    {handle_message, "message", "[message]\tMessage to display on device", 'm'},
-    {handle_password, "password", "\t\tPrompt for local only password to mix entropy", 'p'}
+    {handle_host, "host", "[hostname]\tIdentity hostname for password", 't'},
+    {handle_user, "user", "[user]\t\tIdentity username for password", 'u'},
+    {handle_message, "message", "[message]\tMessage to display on device (legacy format only)", 'm'},
+    {handle_password, "password", "\t\tPrompt for local only password to append to stdout (more entropy)", 'p'}
   };
 
   template<typename F>
