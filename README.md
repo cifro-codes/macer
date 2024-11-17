@@ -5,17 +5,24 @@ macer generates deterministic passwords from the Bip-39 wordlist of length
 a user selected `user@host`. The `user@host` is displayed on the Trezor with
 the phrase `MACER decrypt` for verification before the password can be
 generated. Another Trezor with the same seed and URI will generate the same
-password, making backup of high-entropy passwords easier. The recommendation is
-to ouput 24-words from macer based on analysis in the
-[security section](#security).
+password, making backup of high-entropy passwords easier.
+
+> The bip39-12 output is likely sufficient for many use cases. This is
+> equivalent to [10-diceware-words](https://theworld.com/~reinhold/diceware.html).
+
+> The last word of each bip39 output mode contains a small checksum. This is
+> only useful when using bip39 compatible software. Users can manually truncate
+> words if the pre-selected word counts doesn't meet user needs.
 
 Incorect detractors will point out that macer is limited to 125.8 bit strength 
 due to x25519 usage. HOWEVER, an attacker has to first obtain a 252-bit
 x25519 public-key to crack the 252-bit secret key, AND the public-key cracking
 method _cannot be parallelized_. Brute-force searching 12 words/128-bits can be
 parallelized, making 18/24 macer words useful in protecting against symmetric
-key attacks (thus the recommendation for 24 macer words). The situation is
-analogous to the common usage of x25519+AES-256 instead of x25519+AES-128.
+key attacks (thus the option for 18/24 words). The situation is analogous to
+the common usage of x25519+AES-256 instead of x25519+AES-128. See [security
+seciton](#security) for further analysis.
+
 
 > Brute-force of x25519 public-keys can be sped up by multi-core CPUs, but the
 > process is 2^252. Whereas the 2^125.8 cracking method for x25519 (rho) can
@@ -26,6 +33,9 @@ analogous to the common usage of x25519+AES-256 instead of x25519+AES-128.
 > careful about the newline character stopping `stdin` reading in some
 > applications. The primary use case is to run `macer -f binary | base58`,
 > which generates safe to copy 44-character passwords.
+> `macer -f binary | head -c 16 | base58` will generate 22-character passwords.
+> The `base58` utility is recommended because `0`, `O`, `I` and `1` are **not**
+> used, making paper backups more reliable.
 
 ## Motivation
 
@@ -137,10 +147,13 @@ but the NSA can trivially afford independent machines to crack 12 Bip-39 words.
 As an example, 64 independent machines reduces the total search time by 6 bits,
 so 12 Bip-39 words would only have the time equivalent of 122 x25519 bits. And
 the search time goes down with yet more machines (with a monetary tradeoff).
-This is why most users are better off with 18 or 24 words from macer - an
-attacker will do a brute-force search of (1) 12-words if they can afford 8+
-compute cores, (2) 18-words if they can afford 2^67+ compute cores, and
-(3) 24-words if they can afford 2^127+ compute cores.
+This is why users are better off with 18 or 24 words from macer - an attacker
+will do a brute-force search of (1) 12-words if they can afford 8+ compute
+cores, (2) 18-words if they can afford 2^67+ compute cores, and (3) 24-words if
+they can afford 2^127+ compute cores.
+
+Using 12-words (128-bits) is likely sufficient for many purposes - this is
+equivalent to 10-diceware-words - so don't stress about further
 
 On a related rant, people recommending 12-word seeds because "only" 128-bit
 public-key security are wrong - brute-forcing 12-word seed words definitely
@@ -283,4 +296,3 @@ generating a custom initrd script means you can probably solve this problem.
 
 Run `macer --help | echo` to get options and descriptions. Self explanatory
 if this README.md was read from beginning.
-
