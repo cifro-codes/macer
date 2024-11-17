@@ -95,7 +95,7 @@ applies.
 
 ## Implementation Details
 
-macer uses the SLIP-17 ECDH feature of Trezor, and communicates with the device
+macer uses the SLIP-17 x25519 ECDH feature of Trezor, and communicates with the device
 using libusb-1.0.0 and custom C++11 read/write code. macer can be statically
 linked for use in initrd or other limited environments. macer does not depend
 on Python, Protobuf, or Trezor source code for building.
