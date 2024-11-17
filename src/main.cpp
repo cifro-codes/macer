@@ -201,7 +201,7 @@ int main(int, const char* argv[])
 
   if (is_cout_tty())
   {
-    fprintf(stderr, "stdout should not be connected to tty\n");
+    fprintf(stderr, "stdout should not be connected to tty. Pipe output to another process to run.\n");
     return -1;
   }
 
