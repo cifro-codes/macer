@@ -1,4 +1,4 @@
- # Generate Secure and Recoverable Passwords Using Trezor
+# Generate Secure and Recoverable Passwords Using Trezor
 
 macer generates deterministic passwords from the Bip-39 wordlist of length
 12 (128-bits), 18 (192 bits) or 24 (256-bits) derived from the Trezor seed and
@@ -14,20 +14,18 @@ password, making backup of high-entropy passwords easier.
 > only useful when using bip39 compatible software. Users can manually truncate
 > words if the pre-selected word counts doesn't meet user needs.
 
-Incorect detractors will point out that macer is limited to 125.8 bit strength 
-due to x25519 usage. HOWEVER, an attacker has to first obtain a 252-bit
-x25519 public-key to crack the 252-bit secret key, AND the public-key cracking
-method _cannot be parallelized_. Brute-force searching 12 words/128-bits can be
-parallelized, making 18/24 macer words useful in protecting against symmetric
-key attacks (thus the option for 18/24 words). The situation is analogous to
-the common usage of x25519+AES-256 instead of x25519+AES-128. See [security
-seciton](#security) for further analysis.
-
+Detractors will point out that macer is limited to 125.8 bit strength  due to
+x25519 usage. HOWEVER, an attacker has to first obtain a 252-bit x25519
+public-key to crack the 252-bit secret key, AND the public-key cracking method
+_cannot be parallelized_. Brute-force searching 12 words/128-bits can be
+parallelized, making 18/24 macer words useful in some contexts (thus the option
+for 18/24 words). The situation is analogous to the common usage of
+x25519+AES-256 instead of x25519+AES-128. See [security section](#security) for
+further analysis.
 
 > Brute-force of x25519 public-keys can be sped up by multi-core CPUs, but the
 > process is 2^252. Whereas the 2^125.8 cracking method for x25519 (rho) can
-> only be run in serial. Again, see [security section](#security) for details,
-> and trust the recommendations of 18/24 macer words.
+> only be run in serial. Again, see [security section](#security) for details.
 
 > macer can also output the raw 32-byte binary secret, but users must be
 > careful about the newline character stopping `stdin` reading in some
@@ -131,7 +129,7 @@ the input into SHA-256.
 The major CAVEAT is that an attacker who compromises a host machine of the user
 can request a x25519 public key from the Trezor without confirmation on the
 device. This will (assuming the attacker can determine URIs in use) lower the
-security of assocatied passwords to ~125.8 bits. HOWEVER, cracking an x25519
+security of associated passwords to ~125.8 bits. HOWEVER, cracking an x25519
 public key with rho cannot be parallelized where symmetric key brute forcing
 can be parallelized. If just 12 Bip-39 words are used for AES encryption, then
 the time required to brute force is `2^128/p` where `p` is the number of
@@ -141,36 +139,21 @@ algorithm is serial. This
 [stackoverflow post](https://crypto.stackexchange.com/questions/59762/after-ecdh-with-curve25519-is-it-pointless-to-use-anything-stronger-than-aes-12)
 is related as x25519 is best paired with AES-256.
 
-Usage of `argon2` (or similar) doesn't really help with reduced search space
-of 12 Bip-39 words. More memory is needed per circuit/core to compute `argon2`,
-but the NSA can trivially afford independent machines to crack 12 Bip-39 words.
-As an example, 64 independent machines reduces the total search time by 6 bits,
-so 12 Bip-39 words would only have the time equivalent of 122 x25519 bits. And
-the search time goes down with yet more machines (with a monetary tradeoff).
-This is why users are better off with 18 or 24 words from macer - an attacker
-will do a brute-force search of (1) 12-words if they can afford 8+ compute
-cores, (2) 18-words if they can afford 2^67+ compute cores, and (3) 24-words if
-they can afford 2^127+ compute cores.
+If your password gets fed into `argon2` (or similar), this will increase the
+cost of a search circuit, but doesn't increase the search space. Whether
+12-words is sufficient in this context is up to the reader. 18/24 words does
+have some merit - an attacker is better of with a brute-force search of (1)
+12-words if they can afford 8+ search circuits, (2) 18-words if they can afford
+2^67+ search circuits, and (3) 24-words if they can afford 2^127+ search
+circuits. The analysis gets more complicated when multi-key cracking gets
+introduced, but brute-force searching does quite well in this context.
 
-Using 12-words (128-bits) is likely sufficient for many purposes - this is
-equivalent to 10-diceware-words - so don't stress about further
-
-On a related rant, people recommending 12-word seeds because "only" 128-bit
-public-key security are wrong - brute-forcing 12-word seed words definitely
-takes less real-world time than public-key rho cracking. The entire process
-from seed words to public-key never hits a memory intensive process (making it
-trivial to run in parallel). Read the stackoverflow link (and its references)
-again if you still think only 12-words for a Trezor seed is "matching" the
-strength of the public-key algorithms. The primary obstacle is matching a
-Bip-32 "chain path" to a public key (which is trivial with Trezor when the host
-machine is compromised - the scenario where macer is reduced to 125.8 bits).
+> As a point of reference, a supercomputer in China can reduce brute-force
+> search _time_ by 2^23. Custom built machines can likely do better.
 
 Lastly, users of 12-seeds into the Trezor probably won't find 24 macer words
 particularly useful. They should likely stick to 12 macer words.
 
-> As a point of reference, a supercomputer in China can reduce brute-force
-> search time by 2^23. The brute-force algorithm doesn't need unified memory,
-> so a simple cluster of machines can improve this even more.
 
 ### Hashing URI is only 128-bits.
 
@@ -294,15 +277,5 @@ generating a custom initrd script means you can probably solve this problem.
 
 ## Usage
 
-Run `macer --help` to get options and descriptions. Self explanatory
+Run `macer --help | echo` to get options and descriptions. Self explanatory
 if this README.md was read from beginning.
-
-```bash
-	--help, -h			List help
-	--existing, -e			Prompt for existing LUKS password for adding new key
-	--format, -f	[format]	Output format/strength -> legacy | binary | bip39-12 | bip39-18 | bip39-24
-	--host, -t	[hostname]	Identity hostname for password
-	--user, -u	[user]		Identity username for password
-	--message, -m	[message]	Message to display on device (legacy format only)
-	--password, -p			Prompt for local only password to append to stdout (more entropy)
-```
