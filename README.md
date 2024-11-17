@@ -185,8 +185,8 @@ major change could leave people unable to decrypt documents. Cautious users
 may want to (1) use seedpass and/or (2) use paper/digital backups. Using paper
 backups is likely the better options for most people (unfortunately). In both
 cases, the basic technique is the same, generate and store the output of
-`macer -d bip39-24 -t example.com -u user > test_pass`. Then after firmware
-update, run `macer -d bip39-24 -t example.com -u user | diff test_pass -`. If
+`macer -f bip39-24 -t example.com -u user > test_pass`. Then after firmware
+update, run `macer -f bip39-24 -t example.com -u user | diff test_pass -`. If
 nothing is output by `diff`, then macer passwords will not change. Otherwise,
 you must use your seedpass or paper/digital backups to migrate all passwords
 to their new versions.
