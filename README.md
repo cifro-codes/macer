@@ -274,7 +274,7 @@ cd macer
 ```
 
 ### Static Builds
-Change the `./configure` steps above with `./configure DFLAGS="-static"`. This
+Change the `./configure` steps above with `./configure LDFLAGS="-static"`. This
 will fail on many systems because libusb is not provided statically (Gentoo is
 a common exception). Help will not be provided for this setup, because
 generating a custom initrd script means you can probably solve this problem.
