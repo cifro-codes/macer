@@ -314,7 +314,7 @@ namespace trezor
 
       const auto path = get_path(hash);
       static_assert(request1.address_n.size() == 5, "unexpected array size");
-      std::get<0>(request1.address_n) = hardened_path | 14;
+      std::get<0>(request1.address_n) = hardened_path | 17;
       std::get<1>(request1.address_n) = hardened_path | std::get<0>(path);
       std::get<2>(request1.address_n) = hardened_path | std::get<1>(path);
       std::get<3>(request1.address_n) = hardened_path | std::get<2>(path);
