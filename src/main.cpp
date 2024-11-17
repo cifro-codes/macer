@@ -199,18 +199,18 @@ int main(int, const char* argv[])
     return -1;
   }
 
-  if (is_cout_tty())
-  {
-    fprintf(stderr, "stdout should not be connected to tty. Pipe output to another process to run.\n");
-    return -1;
-  }
-
   ++argv;
   program prog{};
   while (argv = process_argument(prog, argv));
   if (prog.failed)
     return -1;
 
+  if (is_cout_tty())
+  {
+    fprintf(stderr, "stdout should not be connected to tty. Pipe output to another process to run.\n");
+    return -1;
+  }
+	
   if (prog.info.host.empty())
   {
     fprintf(stderr, "--host argument required\n");
