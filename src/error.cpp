@@ -45,6 +45,8 @@ namespace
                     return make_error_code(std::errc::invalid_argument).message();
                 case common_error::invalid_error_code:
                     return "expect<T> was given an error value of zero";
+                case common_error::hash_failure:
+                    return "hash failure";
                 default:
                     break;
             }

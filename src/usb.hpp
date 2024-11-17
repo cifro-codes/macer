@@ -63,7 +63,7 @@ namespace usb
   expect<void> read(device& source, span<std::uint8_t> dest, std::chrono::milliseconds timeout);
   expect<void> write(device& dest, span<const std::uint8_t> source, std::chrono::milliseconds timeout);
 
-  expect<byte_slice> run(libusb_context& ctx, const host_info& info);
+  expect<byte_slice> run(libusb_context& ctx, const host_info& info, bool legacy);
 }
 
 namespace std

@@ -62,7 +62,7 @@ namespace usb
 namespace
 {
   template<typename T>
-  expect<byte_slice> open_and_run(libusb_context& ctx, libusb_device& dev, const host_info& info)
+  expect<byte_slice> open_and_run(libusb_context& ctx, libusb_device& dev, const host_info& info, const bool legacy, const bool og_firmware)
   {
     device_ptr handle;
     {
@@ -79,14 +79,14 @@ namespace
       MACER_LIBUSB_DEFENSIVE(descriptor);
       MACER_LIBUSB_DEFENSIVE(descriptor->interface);
       
-      selected = T::select({descriptor->interface, descriptor->bNumInterfaces});
+      selected = T::select({descriptor->interface, descriptor->bNumInterfaces}, og_firmware);
       if (!selected)
 	return selected.error();
     }
 
     MACER_LIBUSB_CHECK(code, libusb_claim_interface(handle.get(), selected->number));
     usb::device real{std::move(handle), selected->in_endpoint, selected->out_endpoint};
-    return T::run(real, info);
+    return T::run(real, info, legacy);
   }
 
   expect<void> transfer(libusb_device_handle* dev, const std::uint8_t endpoint, span<std::uint8_t> bytes, const std::chrono::milliseconds timeout)
@@ -105,7 +105,7 @@ namespace
 	  dev, endpoint, bytes.data(), this_send, std::addressof(actual), timeout.count()
         )
       );
-      bytes.remove_prefix(this_send);
+      bytes.remove_prefix(actual);
     }
     return success();
   }
@@ -147,7 +147,7 @@ namespace usb
     return transfer(dev.get(), dev.out(), {const_cast<std::uint8_t*>(source.data()), source.size()}, timeout);
   }
 
-  expect<byte_slice> run(libusb_context& ctx, const host_info& info)
+  expect<byte_slice> run(libusb_context& ctx, const host_info& info, const bool legacy)
   {
     std::unique_ptr<libusb_device*[], device_list_free> list;
     {
@@ -160,10 +160,15 @@ namespace usb
     {
       libusb_device_descriptor descriptor{};
       MACER_LIBUSB_CHECK(code, libusb_get_device_descriptor(*i, std::addressof(descriptor)));
-      if (descriptor.idVendor == trezor::vendor_id)
+      if (descriptor.idVendor == trezor::vendor_id || descriptor.idVendor == trezor::vendor_id_og)
       {
-	if (std::binary_search(std::begin(trezor::devices), std::end(trezor::devices), descriptor.idProduct))
-	  return open_and_run<trezor::usb>(ctx, **i, info);
+	const bool og_firmware = descriptor.idVendor == trezor::vendor_id_og;
+	span<const std::uint16_t> devices{trezor::devices};
+	if (og_firmware)
+	  devices = span<const std::uint16_t>{trezor::devices_og};
+
+	if (std::binary_search(devices.begin(), devices.end(), descriptor.idProduct))
+	  return open_and_run<trezor::usb>(ctx, **i, info, legacy, og_firmware);
       }
     }
     return byte_slice{};

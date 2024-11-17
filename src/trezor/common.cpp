@@ -55,6 +55,16 @@ namespace trezor
     wire::object(source);
   }
 
+  void write_bytes(wire::protobuf_writer& dest, const initialize&)
+  {
+    wire::object(dest);
+  }
+  void read_bytes(wire::protobuf_reader& source, const features&)
+  {
+    wire::object(source);
+  }
+
+
   void write_bytes(wire::protobuf_writer& dest, const pin_matrix_ack& self)
   {
     wire::object(dest, WIRE_FIELD(1, pin));

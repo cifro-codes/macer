@@ -26,7 +26,9 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
+#include "crypto/bip39/encoder.hpp"
 #include "host_info.hpp"
 #include "logger.hpp"
 #include "password.hpp"
@@ -34,9 +36,11 @@
 
 namespace
 {
+  enum class format : std::uint8_t { none = 0, legacy, binary, bip39_12, bip39_18, bip39_24 };
   struct program
   {
     host_info info;
+    format fmt;
     bool existing;
     bool password;
     bool failed;
@@ -74,6 +78,52 @@ namespace
     prog.existing = true;
     return argv;
   }
+  const char** handle_format(program& prog, const char* argv[])
+  {
+    if (!argv || !argv[0])
+    {
+      prog.failed = true;
+      fprintf(stderr, "Missing argument for --format\n");
+      return nullptr;
+    }
+
+    if (prog.fmt != format::none)
+    {
+      prog.failed = true;
+      fprintf(stderr, "Argument --format listed twice\n");
+      return nullptr;
+    }
+
+    if (strcmp("legacy", argv[0]) == 0)
+    {
+      prog.fmt = format::legacy;
+      return ++argv;
+    }
+
+    if (!prog.info.message.empty())
+    {
+      prog.failed = true;
+      fprintf(stderr, "Cannot use --message with new --format scheme\n");
+      return nullptr;
+    }
+
+    prog.info.message = "GENERATE PASSWORD";
+    if (strcmp("binary", argv[0]) == 0)
+      prog.fmt = format::binary;
+    else if (strcmp("bip39-12", argv[0]) == 0)
+      prog.fmt = format::bip39_12;
+    else if (strcmp("bip39-18", argv[0]) == 0)
+      prog.fmt = format::bip39_18;
+    else if (strcmp("bip39-24", argv[0]) == 0)
+      prog.fmt = format::bip39_24;
+    else
+    {
+      prog.failed = true;
+      fprintf(stderr, "Invalid --format value\n");
+      return nullptr;
+    }
+    return ++argv;
+  }
   const char** handle_host(program& prog, const char* argv[])
   {
     return basic_handler(prog, prog.info.host, "host", argv);
@@ -84,6 +134,12 @@ namespace
   }
   const char** handle_message(program& prog, const char* argv[])
   {
+    if (prog.fmt != format::none && prog.fmt != format::legacy)
+    {
+      prog.failed = true;
+      fprintf(stderr, "Cannot use --message with new --format scheme\n");
+      return nullptr;
+    }
     return basic_handler(prog, prog.info.message, "message", argv);
   }
   const char** handle_password(program& prog, const char* argv[])
@@ -95,7 +151,8 @@ namespace
   constexpr const argument process_args[] =
   {
     {nullptr, "help", "\t\tList help", 'h'},
-    {handle_existing, "existing", "Prompt for existing LUKS password for adding new key", 'e'},
+    {handle_existing, "existing", "\t\tPrompt for existing LUKS password for adding new key", 'e'},
+    {handle_format, "format", "[format]\tOutput format/strength -> legacy | binary | bip39-12 | bip39-18 | bip39-24", 'f'},
     {handle_host, "host", "[hostname]\tIdentity hostname for machine", 't'},
     {handle_user, "user", "[user]\t\tIdentity username for machine", 'u'},
     {handle_message, "message", "[message]\tMessage to display on device", 'm'},
@@ -160,6 +217,12 @@ int main(int, const char* argv[])
     return -1;
   }
 
+  if (prog.fmt == format::none)
+  {
+    fprintf(stderr, "--format argument required\n");
+    return -1;
+  }
+
   if (prog.existing)
   {
     const expect<std::string> existing = password_prompt("Enter current password");
@@ -179,7 +242,7 @@ int main(int, const char* argv[])
   expect<byte_slice> secret{common_error::invalid_argument};
   while (true)
   {
-    secret = usb::run(*ctx, prog.info);
+    secret = usb::run(*ctx, prog.info, prog.fmt == format::legacy);
     if (!secret)
     {
       MACER_LOG_ERROR(secret.error());
@@ -187,7 +250,7 @@ int main(int, const char* argv[])
     }
     if (!secret->empty())
       break;
-    
+
     fprintf(stderr, "Attach compatible device  (press any key when ready)...\n");
     if (getchar() == EOF)
     {
@@ -195,6 +258,40 @@ int main(int, const char* argv[])
       return -1;
     }
   }
+
+  bool bip39_output = true;
+  unsigned pass_size = 64;
+  switch (prog.fmt)
+  {
+  default:
+  case format::legacy:
+    bip39_output = false;
+    break;
+  case format::binary:
+    bip39_output = false;
+    pass_size = 32;
+    break;
+  case format::bip39_12:
+    pass_size = 16;
+    break;
+  case format::bip39_18:
+    pass_size = 24;
+    break;
+  case format::bip39_24:
+    pass_size = 32;
+    break;
+  }
+
+  if (secret->size() < pass_size)
+  {
+    fprintf(stderr, "Internal Error on Password Generation\n");
+    return -1;
+  }
+
+  secret = secret->get_slice(0, pass_size);
+  if (bip39_output)
+    secret = bip39::encode(std::move(*secret)).value();
+  
 
   expect<std::string> local{common_error::invalid_argument};
   if (prog.password)

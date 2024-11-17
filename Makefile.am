@@ -5,6 +5,11 @@ macer_SOURCES = \
 		src/byte_slice.hpp \
 		src/byte_stream.cpp \
 		src/byte_stream.hpp \
+				src/crypto/bip39/encoder.cpp \
+				src/crypto/bip39/encoder.hpp \
+				src/crypto/bip39/wordlist.hpp \
+			src/crypto/sha256_cp.c \
+			src/crypto/sha256.h \
 		src/error.cpp \
 		src/error.hpp \
 		src/expect.cpp \

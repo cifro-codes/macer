@@ -1,4 +1,4 @@
-// Copyright (c) 2022, Cifro Codes
+// Copyright (c) 2024, Cifro Codes
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -25,54 +25,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "trezor/crypto.hpp"
+#pragma once
 
-#include "wire/array.hpp"
-#include "wire/protobuf.hpp"
+#include "byte_slice.hpp"
+#include "expect.hpp"
 
-namespace trezor
+namespace bip39
 {
-  void write_bytes(wire::protobuf_writer& dest, const get_public_key& self)
-  {
-    wire::object(dest, WIRE_FIELD(1, address_n), WIRE_FIELD(2, curve_name));
-  }
-
-  void read_bytes(wire::protobuf_reader& source, public_key::hd_node& self)
-  {
-    wire::object(source, WIRE_FIELD(6, public_key));
-  }
-  void read_bytes(wire::protobuf_reader& source, public_key& self)
-  {
-    wire::object(source, WIRE_FIELD(1, node));
-  }
-
-  void write_bytes(wire::protobuf_writer& dest, const identity& self)
-  {
-    wire::object(dest, WIRE_FIELD(1, protocol), WIRE_FIELD(2, user), WIRE_FIELD(3, host));
-  }
-
-  void write_bytes(wire::protobuf_writer& dest, const sign_identity& self)
-  {
-    wire::object(dest,
-      WIRE_FIELD(1, ident),
-      WIRE_FIELD(2, challenge_hidden),
-      WIRE_FIELD(3, challenge_visual),
-      WIRE_FIELD(4, curve_name)
-    );
-  }
-
-  void read_bytes(wire::protobuf_reader& source, signed_identity& self)
-  {
-    wire::object(source, WIRE_FIELD(3, signature));
-  }
-
-  void write_bytes(wire::protobuf_writer& dest, const get_ecdh_session& self)
-  {
-    wire::object(dest, WIRE_FIELD(1, ident), WIRE_FIELD(2, peer_key), WIRE_FIELD(3, curve_name));
-  }
-
-  void read_bytes(wire::protobuf_reader& source, ecdh_session& self)
-  {
-    wire::object(source, WIRE_FIELD(1, secret_key), WIRE_FIELD(2, public_key));
-  }
+  expect<byte_slice> encode(byte_slice in);
 }

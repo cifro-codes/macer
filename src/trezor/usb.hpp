@@ -37,14 +37,14 @@ struct libusb_interface;
 
 namespace trezor
 {
-  constexpr const std::uint16_t vendor_id = 0x534c;
-  constexpr const std::uint16_t device_v1_id = 0x01;
-  constexpr const std::uint16_t device_v2_id = 0x02;
-  constexpr const std::uint16_t devices[] = {device_v1_id, device_v2_id};
+  constexpr const std::uint16_t vendor_id_og = 0x543c;
+  constexpr const std::uint16_t vendor_id = 0x1209;
+  constexpr const std::uint16_t devices_og[] = {0x01, 0x2};
+  constexpr const std::uint16_t devices[] = {0x53c1};
 
   struct usb
   {
-    static expect<::usb::interface> select(span<const libusb_interface> interfaces);
-    static expect<byte_slice> run(::usb::device& dev, const host_info& info);
+    static expect<::usb::interface> select(span<const libusb_interface> interfaces, bool og_firmare);
+    static expect<byte_slice> run(::usb::device& dev, const host_info& info, bool legacy);
   };
 }

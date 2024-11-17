@@ -33,7 +33,8 @@ enum class common_error : int
 {
     // 0 is reserved for no error, as per expect<T>
     invalid_argument = 1, //!< A function argument is invalid
-    invalid_error_code    //!< Default `std::error_code` given to `expect<T>`
+    invalid_error_code,    //!< Default `std::error_code` given to `expect<T>`
+    hash_failure
 };
 
 std::error_category const& common_category() noexcept;

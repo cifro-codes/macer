@@ -33,10 +33,14 @@
 
 namespace trezor
 {
-  enum class message_id : std::uint32_t
+  enum class message_id : std::uint16_t
   {
+    initialize = 0,
     success = 2,
     failure = 3,
+    get_public_key = 11,
+    public_key = 12,
+    features = 17,
     pin_matrix_request = 18,
     pin_matrix_ack = 19,
     button_request = 26,
@@ -44,7 +48,9 @@ namespace trezor
     passphrase_request = 41,
     passphrase_ack = 42,
     sign_identity = 53,
-    signed_identity = 54
+    signed_identity = 54,
+    get_ecdh_session = 61,
+    ecdh_session = 62
   };
   
   struct failure
@@ -90,6 +96,15 @@ namespace trezor
   };
   WIRE_PROTOBUF_DECLARE_ENUM(button_request::type);
   void read_bytes(wire::protobuf_reader&, button_request&);
+
+  struct initialize
+  {
+    static constexpr message_id id() noexcept { return message_id::initialize; }
+  };
+  void write_bytes(wire::protobuf_writer&, const initialize&);
+
+  struct features {};
+  void read_bytes(wire::protobuf_reader& source, const features&);
 
 
   struct passphrase_ack

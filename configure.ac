@@ -1,6 +1,7 @@
-AC_INIT([macer], [0.1], [lee@cifro.codes], [macer], [https://code.cifro.codes/macer])
+AC_INIT([macer], [0.2], [lee@cifro.codes], [macer], [https://code.cifro.codes/macer])
 AM_INIT_AUTOMAKE([foreign subdir-objects dist-bzip2 dist-xz])
 
+AC_PROG_CC
 AC_PROG_CXX
 AC_LANG(C++)
 

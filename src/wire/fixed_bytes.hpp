@@ -8,7 +8,7 @@ namespace wire
   template<typename Tag, std::size_t N>
   struct fixed_bytes
   {
-    char data[N];
+    unsigned char data[N];
   };
 
   template<typename Tag, std::size_t N>

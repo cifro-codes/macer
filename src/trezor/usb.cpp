@@ -31,6 +31,7 @@
 #include <cstdio>
 #include <limits>
 #include <string>
+#include "crypto/sha256.h"
 #include "error.hpp"
 #include "host_info.hpp"
 #include "logger.hpp"
@@ -42,6 +43,23 @@
 
 namespace
 {
+  std::array<std::uint32_t, 4> get_path(const std::array<unsigned char, crypto_hash_sha256_BYTES>& hash)
+  {
+    std::array<std::uint32_t, 4> out{{}};
+
+    auto bytes = to_span(hash);
+    for (std::uint32_t& val : out)
+    {
+      val = bytes[0];
+      val |= bytes[1] << 8;
+      val |= bytes[2] << 16;
+      val |= bytes[3] << 24;
+      bytes.remove_prefix(4);
+    }
+
+    return out;
+  }
+
   expect<void> read_buffer(usb::device& dev, span<std::uint8_t> dest)
   {
     return usb::read(dev, dest, std::chrono::seconds{0});
@@ -52,21 +70,18 @@ namespace
     assert(offset < buffer.size());
     const std::size_t next = std::min(bytes.size(), buffer.size() - offset);
     std::memcpy(buffer.data() + offset, bytes.data(), next);
+    std::memset(buffer.data() + offset + next, 0, buffer.size() - offset - next);
     MACER_CHECK(usb::write(dev, to_span(buffer), std::chrono::seconds{1}));
     bytes.remove_prefix(next);
     return success();
   }
 
-  template<typename T>
-  expect<void> send_message(usb::device& dev, const T& message)
+  expect<void> send_message(usb::device& dev, const trezor::message_id id, byte_slice bytes)
   {
-    byte_slice bytes = wire::protobuf::to_bytes(message);
-    MACER_PRECOND(bytes.size() <= std::numeric_limits<std::uint32_t>::max());
-
     std::uint8_t buffer[64] = {'?', '#', '#', 0};
 
-    buffer[3] = std::uint16_t(message.id()) >> 8;
-    buffer[4] = std::uint16_t(message.id()) & 0xFF;
+    buffer[3] = std::uint16_t(id) >> 8;
+    buffer[4] = std::uint16_t(id) & 0xFF;
 
     buffer[5] = (bytes.size() >> 24) & 0xFF;
     buffer[6] = (bytes.size() >> 16) & 0xFF;
@@ -77,6 +92,14 @@ namespace
     while (!bytes.empty())
       MACER_CHECK(send_buffer(dev, bytes, buffer, 1));
     return success();
+  }
+
+  template<typename T>
+  expect<void> send_message(usb::device& dev, const T& message)
+  {
+    byte_slice bytes = wire::protobuf::to_bytes(message);
+    MACER_PRECOND(bytes.size() <= std::numeric_limits<std::uint32_t>::max());
+    return send_message(dev, message.id(), std::move(bytes));
   }
 
   template<typename T>
@@ -95,6 +118,17 @@ namespace
       return message.error();
     fprintf(stderr, "Trezor failure: %s\n", message->message.c_str());
     return {trezor::error::device_failure};
+  }
+  expect<byte_slice> handle_public_key(usb::device&, byte_slice&& bytes)
+  {
+    const auto message = wire::protobuf::from_bytes<trezor::public_key>(std::move(bytes));
+    if (!message)
+      return message.error();
+    return byte_slice{{as_byte_span(message->node.public_key)}};
+  }
+  expect<byte_slice> handle_features(usb::device&, byte_slice&& bytes)
+  {
+    return byte_slice{};
   }
   expect<byte_slice> handle_pin(usb::device& dev, byte_slice&& bytes)
   {
@@ -128,6 +162,27 @@ namespace
     sig.remove_prefix(1);
     return byte_slice{sig};
   }
+  expect<byte_slice> handle_ecdh_session(usb::device&, byte_slice&& bytes)
+  {
+    const auto message = wire::protobuf::from_bytes<trezor::ecdh_session>(std::move(bytes));
+    if (!message)
+      return message.error();
+
+    static_assert(sizeof(message->secret_key) == 33, "unexpected ecdh secret size");
+
+    /* Trezor prefixes the x25519 key with a non-standard value. Just drop it,
+      no entropy is provided by this value. */
+    auto key = as_byte_span(message->secret_key);
+    key.remove_prefix(1); // non-standared prefix
+
+    byte_stream hash;
+    hash.put_n(0, crypto_hash_sha256_BYTES);
+
+    if (crypto_hash_sha256(hash.data(), key.data(), key.size()))
+      return {common_error::hash_failure};
+
+    return byte_slice{std::move(hash)};
+  }
 
   struct message_map
   {
@@ -143,10 +198,13 @@ namespace
   constexpr const message_map handlers[] =
   {
     {handle_failure, trezor::message_id::failure},
+    {handle_public_key, trezor::message_id::public_key},
+    {handle_features, trezor::message_id::features},
     {handle_pin, trezor::message_id::pin_matrix_request},
     {handle_button, trezor::message_id::button_request},
     {handle_passphrase, trezor::message_id::passphrase_request},
-    {handle_signature, trezor::message_id::signed_identity}
+    {handle_signature, trezor::message_id::signed_identity},
+    {handle_ecdh_session, trezor::message_id::ecdh_session}
   };
 
   expect<byte_slice> read_message(usb::device& dev)
@@ -169,7 +227,6 @@ namespace
     std::uint32_t next = std::min(std::uint32_t(sizeof(buffer) - 9), remaining);
     unpacked.write({buffer + 9, next});
     remaining -= next;
-
     while (remaining)
     {
       MACER_CHECK(read_buffer(dev, buffer));
@@ -182,7 +239,7 @@ namespace
     }
 
     const auto found = std::lower_bound(std::begin(handlers), std::end(handlers), trezor::message_id(id));
-    if (found == std::end(handlers))
+    if (found == std::end(handlers) || found->id != trezor::message_id(id))
       return {trezor::error::unsupported_message};
 
     return found->handler(dev, byte_slice{std::move(unpacked)});
@@ -191,15 +248,17 @@ namespace
 
 namespace trezor
 {
-  expect<::usb::interface> usb::select(span<const libusb_interface> interfaces)
+  expect<::usb::interface> usb::select(span<const libusb_interface> interfaces, const bool og_firmware)
   {
     for (const libusb_interface& intf : interfaces)
     {
       MACER_LIBUSB_DEFENSIVE(intf.altsetting);
       for (unsigned i = 0; i < intf.num_altsetting; ++i)
       {
+	const int usb_class = og_firmware ?
+	  LIBUSB_CLASS_HID : LIBUSB_CLASS_VENDOR_SPEC;
 	const libusb_interface_descriptor& descriptor = intf.altsetting[i];
-	if (descriptor.bInterfaceClass == LIBUSB_CLASS_HID)
+	if (descriptor.bInterfaceClass == usb_class)
 	{
 	  MACER_LIBUSB_DEFENSIVE(descriptor.endpoint);
 	  std::uint8_t in = 0;
@@ -222,15 +281,63 @@ namespace trezor
     return {common_error::invalid_argument};
   }
 
-  expect<byte_slice> usb::run(::usb::device& dev, const host_info& info)
+  expect<byte_slice> usb::run(::usb::device& dev, const host_info& info, const bool legacy)
   {
-    // send request first
+    {
+      MACER_CHECK(send_message(dev, initialize{}));
+      expect<byte_slice> status = read_message(dev);
+      if (!status)
+	return status;
+    }
+
+    if (legacy)
     {
       sign_identity request{
 	{"macer", info.user, info.host}, "macer_luks_drive", info.message, "ed25519"
       };
 
       MACER_CHECK(send_message(dev, request));
+    }
+    else
+    {
+      /* This could be a fixed path for a nothing-up-my-sleeves approach, but
+        introducing a hashed path is pretty simple and removes a fixed
+	public-key to crack. */
+      std::array<unsigned char, crypto_hash_sha256_BYTES> hash{{}};
+      {
+        const std::string uri = "macer_peerkey://" + info.user + "@" + info.host;
+        if (crypto_hash_sha256(hash.data(), reinterpret_cast<const unsigned char*>(uri.data()), uri.size()))
+          return {common_error::hash_failure};
+      }
+
+      get_public_key request1{"curve25519"};
+
+      const auto path = get_path(hash);
+      static_assert(request1.address_n.size() == 5, "unexpected array size");
+      std::get<0>(request1.address_n) = hardened_path | 14;
+      std::get<1>(request1.address_n) = hardened_path | std::get<0>(path);
+      std::get<2>(request1.address_n) = hardened_path | std::get<1>(path);
+      std::get<3>(request1.address_n) = hardened_path | std::get<2>(path);
+      std::get<4>(request1.address_n) = hardened_path | std::get<3>(path);
+    
+      MACER_CHECK(send_message(dev, request1));
+ 
+      expect<byte_slice> peer_pubkey{common_error::invalid_argument};
+      while (true)
+      {
+	peer_pubkey = read_message(dev);
+	if (!peer_pubkey)
+	  return peer_pubkey;
+	if (!peer_pubkey->empty())
+	  break;
+      }
+
+      get_ecdh_session request2{
+	{"macer", info.user, info.host}, "curve25519"
+      };
+      std::memcpy(std::addressof(request2.peer_key), peer_pubkey->data(), std::min(peer_pubkey->size(), sizeof(request2.peer_key)));
+      request2.peer_key.data[0] = 0x40;
+      MACER_CHECK(send_message(dev, request2));
     }
 
     // process messages until signed response is received

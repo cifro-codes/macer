@@ -130,7 +130,8 @@ namespace wire
   protobuf_reader::protobuf_reader(byte_slice&& source)
     : reader(),
       source_(std::move(source)),
-      objects_(new span<const std::uint8_t>[max_read_depth()])
+      objects_(new span<const std::uint8_t>[max_read_depth()]),
+      last_type_(protobuf::type::bytes)
   {
     objects_[0] = to_span(source_);
   }
@@ -220,21 +221,12 @@ namespace wire
 
   std::size_t protobuf_reader::start_array()
   {
-    increment_depth();
-    check_bounds("start_array");
-    if (last_type_ == protobuf::type::bytes)
-      objects_[depth() - 1] = protobuf_bytes(objects_[depth() - 2]);
-    else
-      objects_[depth() - 1] = nullptr;
-    return 0;
+    throw std::runtime_error{"protobuf_reader::start_array not implemented"};
   }
 
   bool protobuf_reader::is_array_end(const std::size_t)
   {
-    check_bounds("is_array_end");
-    if (!objects_[depth() - 1].empty())
-      return false;
-    return true;
+    throw std::runtime_error{"protobuf_reader::is_array_end not implemented"};
   }
 
   std::size_t protobuf_reader::start_object()

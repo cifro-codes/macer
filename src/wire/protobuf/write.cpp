@@ -74,13 +74,15 @@ namespace wire
   }
   void protobuf_writer::unsigned_integer(const unsigned source)
   {
-    assert(index_ < max_object_depth);
+    if (max_object_depth <= index_)
+      throw std::logic_error{"invalid protobuf_writer usage (uint) "};
     write_tag(protobuf::type::varint);
     write_varint(objects_[index_].stream, source);
   }
   void protobuf_writer::unsigned_integer(const std::uintmax_t source)
   {
-    assert(index_ < max_object_depth);
+    if (max_object_depth <= index_)
+      throw std::logic_error{"invalid protobuf_writer usage (uint)"};
     write_tag(protobuf::type::varint);
     write_varint(objects_[index_].stream, source);
   }
@@ -91,7 +93,8 @@ namespace wire
 
   void protobuf_writer::string(const span<const char> source)
   {
-    assert(index_ <  max_object_depth);
+    if (max_object_depth <= index_)
+      throw std::logic_error{"invalid protobuf_writer usage (string)"};
     write_tag(protobuf::type::bytes);
     write_varint(objects_[index_].stream, source.size());
     objects_[index_].stream.write(source);
@@ -103,7 +106,8 @@ namespace wire
 
   void protobuf_writer::enumeration(const std::size_t index, const span<char const* const>)
   {
-    assert(index_ < max_object_depth);
+    if (max_object_depth <= index_);
+      throw std::logic_error{"invalid protobuf_writer usage"};
     write_tag(protobuf::type::varint);
     write_varint(objects_[index_].stream, index);
   }
