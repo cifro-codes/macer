@@ -35,8 +35,8 @@
 
 #include "byte_slice.hpp"
 #include "span.hpp"
+#include "wire/error.hpp"
 #include "wire/field.hpp"
-#include "wire/filters.hpp"
 #include "wire/traits.hpp"
 
 namespace wire
@@ -59,8 +59,6 @@ namespace wire
     virtual void string(span<const char> str) = 0;
     virtual void binary(span<const std::uint8_t> bytes) = 0;
 
-    virtual void enumeration(std::size_t index, span<char const* const> enums) = 0;
-
     virtual void start_array(std::size_t) = 0;
     virtual void end_array() = 0;
 
@@ -79,57 +77,72 @@ namespace wire
 
   // leave in header, compiler can de-virtualize when final type is given
 
-  inline void write_bytes(writer& dest, const int source)
+  template<typename W>
+  inline void write_bytes(W& dest, const int source)
   {
+    static_assert(std::is_same<W, void>::value, "protobuf_writer does not support signed integers");
     dest.integer(source);
   }
-  inline void write_bytes(writer& dest, const long source)
+  template<typename W>
+  inline void write_bytes(W& dest, const long source)
   {
+    static_assert(std::is_same<W, void>::value, "protobuf_writer does not support signed integers");
     dest.integer(std::intmax_t(source));
   }
-  inline void write_bytes(writer& dest, const long long source)
+  template<typename W>
+  inline void write_bytes(W& dest, const long long source)
   {
+    static_assert(std::is_same<W, void>::value, "protobuf_writer does not support signed integers");
     dest.integer(std::intmax_t(source));
   }
 
-  inline void write_bytes(writer& dest, const unsigned source)
+  template<typename W>
+  inline void write_bytes(W& dest, const unsigned source)
   {
     dest.unsigned_integer(source);
   }
-  inline void write_bytes(writer& dest, const unsigned long source)
+  template<typename W>
+  inline void write_bytes(W& dest, const unsigned long source)
   {
     dest.unsigned_integer(std::uintmax_t(source));
   }
-  inline void write_bytes(writer& dest, const unsigned long long source)
+  template<typename W>
+  inline void write_bytes(W& dest, const unsigned long long source)
   {
     dest.unsigned_integer(std::uintmax_t(source));
   }
 
-  inline void write_bytes(writer& dest, const double source)
+  template<typename W>
+  inline void write_bytes(W& dest, const double source)
   {
+    static_assert(std::is_same<W, void>::value, "protobuf_writer does not support doubles"); 
     dest.real(source);
   }
 
-  inline void write_bytes(writer& dest, const span<const char> source)
+  template<typename W>
+  inline void write_bytes(W& dest, const span<const char> source)
   {
     dest.string(source);
   }
-  inline void write_bytes(writer& dest, const std::string& source)
+  template<typename W>
+  inline void write_bytes(W& dest, const std::string& source)
   {
     dest.string(to_span(source));
   }
-  inline void write_bytes(writer& dest, const char* source)
+  template<typename W>
+  inline void write_bytes(W& dest, const char* source)
   {
     dest.string({source, std::strlen(source)});
   }
 
-  template<typename T>
-  inline enable_if<is_blob<T>::value> write_bytes(writer& dest, const T& source)
+  template<typename W, typename T>
+  inline enable_if<is_blob<T>::value> write_bytes(W& dest, const T& source)
   {
     dest.binary(as_byte_span(source));
   }
 
-  inline void write_bytes(writer& dest, const span<const std::uint8_t> source)
+  template<typename W>
+  inline void write_bytes(W& dest, const span<const std::uint8_t> source)
   {
     dest.binary(source);
   }
@@ -144,15 +157,49 @@ namespace wire_write
       declared after these functions. */
 
   template<typename W, typename T>
-  inline byte_slice to_bytes(const T& value)
+  inline void bytes(W& dest, const T& source)
   {
-    W dest{};
-    write_bytes(dest, value);
-    return dest.take_bytes();
+    write_bytes(dest, source); // ADL (searches every associated namespace)
   }
 
-  template<typename W, typename T, typename F = wire::identity_>
-  inline void array(W& dest, const T& source, const std::size_t count, F filter = {})
+  template<typename W, typename T, typename U>
+  inline std::error_code to_bytes(T& dest, const U& source)
+  {
+    try
+    {
+      W out{std::move(dest)};
+      bytes(out, source);
+      dest = out.take_sink();
+    }
+    catch (const wire::exception& e)
+    {
+      dest.clear();
+      return e.code();
+    }
+    catch (...)
+    {
+      dest.clear();
+      throw;
+    }
+    return {};
+  }
+
+  template<typename W, typename T>
+  inline std::error_code to_bytes(byte_slice& dest, const T& source)
+  {
+    byte_stream sink{};
+    const std::error_code error = wire_write::to_bytes<W>(sink, source);
+    if (error)
+    {
+      dest = nullptr;
+      return error;
+    }
+    dest = byte_slice{std::move(sink)};
+    return {};
+  }
+
+  template<typename W, typename T>
+  inline void array(W& dest, const T& source, const std::size_t count)
   {
     using value_type = typename T::value_type;
     static_assert(!std::is_same<value_type, char>::value, "write array of chars as binary");
@@ -160,7 +207,7 @@ namespace wire_write
 
     dest.start_array(count);
     for (const auto& elem : source)
-      write_bytes(dest, filter(elem));
+      bytes(dest, elem);
     dest.end_array();
   }
 
@@ -168,7 +215,7 @@ namespace wire_write
   inline bool field(W& dest, const wire::field_<T, Id, true> elem)
   {
     dest.key(elem.id(), elem.name);
-    write_bytes(dest, elem.get_value());
+    bytes(dest, elem.get_value());
     return true;
   }
 
@@ -178,7 +225,7 @@ namespace wire_write
     if (bool(elem.get_value()))
     {
       dest.key(elem.id(), elem.name);
-      write_bytes(dest, *elem.get_value());
+      bytes(dest, *elem.get_value());
     }
     return true;
   }
@@ -190,51 +237,23 @@ namespace wire_write
     const bool dummy[] = {field(dest, std::move(fields))...};
     dest.end_object();
   }
-
-  template<typename W, typename T, typename F, typename G>
-  inline void dynamic_object(W& dest, const T& values, const std::size_t count, F key_filter, G value_filter)
-  {
-    dest.start_object(count);
-    for (const auto& elem : values)
-    {
-      dest.key(key_filter(elem.first));
-      write_bytes(dest, value_filter(elem.second));
-    }
-    dest.end_object();
-  }
 } // wire_write
 
 namespace wire
 {
-  template<typename T, typename F = identity_>
-  inline void array(writer& dest, const T& source, F filter = F{})
+  template<typename W, typename T>
+  inline void array(W& dest, const T& source)
   {
-    wire_write::array(dest, source, source.size(), std::move(filter));
+    wire_write::array(dest, source, source.size());
   }
-  template<typename T, typename F>
-  inline void write_bytes(writer& dest, as_array_<T, F> source)
-  {
-    wire::array(dest, source.get_value(), std::move(source.filter));
-  }
-  template<typename T>
-  inline enable_if<is_array<T>::value> write_bytes(writer& dest, const T& source)
+  template<typename W, typename T>
+  inline enable_if<is_array<T>::value> write_bytes(W& dest, const T& source)
   {
     wire::array(dest, source);
   }
 
-  template<typename T, typename F = identity_, typename G = identity_>
-  inline void dynamic_object(writer& dest, const T& source, F key_filter = F{}, G value_filter = G{})
-  {
-    wire_write::dynamic_object(dest, source, source.size(), std::move(key_filter), std::move(value_filter));
-  }
-  template<typename T, typename F, typename G>
-  inline void write_bytes(writer& dest, as_object_<T, F, G> source)
-  {
-    wire::dynamic_object(dest, source.get_map(), std::move(source.key_filter), std::move(source.value_filter));
-  }
-
-  template<typename... T>
-  inline void object(writer& dest, T... fields)
+  template<typename W, typename... T>
+  inline enable_if<std::is_base_of<writer, W>::value> object(W& dest, T... fields)
   {
     wire_write::object(dest, std::move(fields)...);
   }

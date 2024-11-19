@@ -97,7 +97,10 @@ namespace
   template<typename T>
   expect<void> send_message(usb::device& dev, const T& message)
   {
-    byte_slice bytes = wire::protobuf::to_bytes(message);
+    byte_slice bytes;
+    const std::error_code error = wire::protobuf::to_bytes(bytes, message);
+    if (error)
+      return error;
     MACER_PRECOND(bytes.size() <= std::numeric_limits<std::uint32_t>::max());
     return send_message(dev, message.id(), std::move(bytes));
   }

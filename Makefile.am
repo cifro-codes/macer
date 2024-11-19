@@ -35,7 +35,6 @@ macer_SOURCES = \
 			src/wire/error.cpp \
 			src/wire/error.hpp \
 			src/wire/field.hpp \
-			src/wire/filters.hpp \
 			src/wire/fixed_bytes.hpp \
 			src/wire/fwd.hpp \
 			src/wire/protobuf.hpp \

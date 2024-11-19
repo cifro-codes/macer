@@ -55,10 +55,11 @@ namespace wire
     write_varint(objects_[index_].stream, (std::uint64_t(last_id_) << 3) | std::uint8_t(type));
   }
 
-  protobuf_writer::protobuf_writer()
+  protobuf_writer::protobuf_writer(byte_stream&& sink)
     : objects_(), index_(max_size_t), last_id_(0)
   {
     objects_.reset(new object_data[max_object_depth]);
+    objects_[0].stream = std::move(sink);
   }
 
   protobuf_writer::~protobuf_writer() noexcept
@@ -104,14 +105,6 @@ namespace wire
     string({reinterpret_cast<const char*>(source.data()), source.size()});
   }
 
-  void protobuf_writer::enumeration(const std::size_t index, const span<char const* const>)
-  {
-    if (max_object_depth <= index_);
-      throw std::logic_error{"invalid protobuf_writer usage"};
-    write_tag(protobuf::type::varint);
-    write_varint(objects_[index_].stream, index);
-  }
-
   void protobuf_writer::start_array(std::size_t)
   {}
   void protobuf_writer::end_array()
@@ -152,12 +145,12 @@ namespace wire
     }
   }
 
-  byte_slice protobuf_writer::take_bytes()
+  byte_stream protobuf_writer::take_sink()
   {
     if (index_ != max_size_t)
-      throw std::logic_error{"protobuf_writer::take_slice called on incomplete protobuf stream"};
+      throw std::logic_error{"protobuf_writer::take_sink called on incomplete protobuf stream"};
 
-    byte_slice out{std::move(objects_[0].stream)};
+    byte_stream out{std::move(objects_[0].stream)};
     objects_[0].stream.clear();
     return out;
   }

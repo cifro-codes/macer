@@ -36,7 +36,8 @@ namespace error
   //! Type wrapper to "grab" rapidjson errors
   enum class protobuf : int
   {
-    invalid_encoding = 0,
+    success = 0, // per expect<T> requirements
+    invalid_encoding,
     unrecognized_type
   };
 

@@ -43,14 +43,14 @@
   static_assert(std::numeric_limits<std::underlying_type<type_>::type>::max() <= std::numeric_limits<std::size_t>::max(), "underlying enum type too small"); \
   void read_bytes(::wire::protobuf_reader& source, type_& dest)		\
   {									\
-    dest = type_(source.enumeration({}));				\
+    dest = type_(source.unsigned_integer());				\
   }									\
   void write_bytes(::wire::protobuf_writer& dest, const type_ source)	\
   {									\
-   dest.enumeration(std::size_t(source), {});				\
+   dest.unsigned_integer(std::size_t(source));				\
   }
 
-#define WIRE_PROOBUF_DEFINE_OBJECT(type, map)				\
+#define WIRE_PROTOBUF_DEFINE_OBJECT(type, map)				\
   void read_bytes(::wire::protobuf_reader& source, type& dest)		\
   {                                                                     \
     map(source, dest);                                                  \

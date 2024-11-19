@@ -28,11 +28,12 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
+#include <system_error>
 
-#include "byte_slice.hpp"
 #include "expect.hpp"
 #include "wire/protobuf/fwd.hpp"
+
+class byte_slice;
 
 namespace wire
 {
@@ -52,7 +53,7 @@ namespace wire
     template<typename T>
     static expect<T> from_bytes(byte_slice&& source);
 
-    template<typename T>
-    static byte_slice to_bytes(const T& source);
+    template<typename T, typename U>
+    static std::error_code to_bytes(T& dest, const U& source);
   };
 }

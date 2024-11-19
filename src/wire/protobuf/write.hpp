@@ -57,7 +57,10 @@ namespace wire
     void write_tag(protobuf::type);
 
   public:
-    protobuf_writer();
+    protobuf_writer(byte_stream&& sink);
+    protobuf_writer()
+      : protobuf_writer(byte_stream{})
+    {}
 
     protobuf_writer(const protobuf_writer&) = delete;
     virtual ~protobuf_writer() noexcept;
@@ -74,8 +77,6 @@ namespace wire
     void string(span<const char> source) override final;
     void binary(span<const std::uint8_t> source) override final;
 
-    void enumeration(std::size_t index, span<char const* const>) override final;
-
     void start_array(std::size_t) override final;
     void end_array() override final;
 
@@ -85,47 +86,12 @@ namespace wire
     void key(unsigned, const char*) override final;
     void end_object() override final;
 
-    byte_slice take_bytes();
+    byte_stream take_sink();
   };
 
-  template<typename T>
-  byte_slice protobuf::to_bytes(const T& source)
+  template<typename T, typename U>
+  std::error_code protobuf::to_bytes(T& dest, const U& source)
   {
-    return wire_write::to_bytes<protobuf_writer>(source);
+    return wire_write::to_bytes<output_type>(dest, source);
   }
-
-  template<typename T, typename F = identity_>
-  inline void array(protobuf_writer& dest, const T& source, F filter = F{})
-  {
-    // works with "lazily" computed ranges
-    wire_write::array(dest, source, 0, std::move(filter));
-  }
-  template<typename T, typename F>
-  inline void write_bytes(protobuf_writer& dest, as_array_<T, F> source)
-  {
-    wire::array(dest, source.get_value(), std::move(source.filter));
-  }
-  template<typename T>
-  inline enable_if<is_array<T>::value> write_bytes(protobuf_writer& dest, const T& source)
-  {
-    wire::array(dest, source);
-  }
-
-  template<typename T, typename F = identity_, typename G = identity_>
-  inline void dynamic_object(protobuf_writer& dest, const T& source, F key_filter = F{}, G value_filter = G{})
-  {
-    // works with "lazily" computed ranges
-    wire_write::dynamic_object(dest, source, 0, std::move(key_filter), std::move(value_filter));
-  }
-  template<typename T, typename F, typename G>
-  inline void write_bytes(protobuf_writer& dest, as_object_<T, F, G> source)
-  {
-    wire::dynamic_object(dest, source.get_map(), std::move(source.key_filter), std::move(source.value_filter));
-  }
-
-  template<typename... T>
-  inline void object(protobuf_writer& dest, T... fields)
-  {
-    wire_write::object(dest, std::move(fields)...);
-  }
-}
+} // wire

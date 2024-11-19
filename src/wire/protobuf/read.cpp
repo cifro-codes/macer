@@ -213,12 +213,6 @@ namespace wire
     std::memcpy(dest.data(), source.data(), dest.size());
   }
 
-  std::size_t protobuf_reader::enumeration(const span<char const* const>)
-  {
-    check_bounds("enumeration");
-    return protobuf_uvarint<std::size_t>(objects_[depth() - 1]);
-  }
-
   std::size_t protobuf_reader::start_array()
   {
     throw std::runtime_error{"protobuf_reader::start_array not implemented"};

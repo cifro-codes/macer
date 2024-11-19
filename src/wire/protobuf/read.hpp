@@ -78,10 +78,6 @@ namespace wire
     //! \throw wire::exception if next token cannot be read as hex into `dest`.
     void binary(span<std::uint8_t> dest) override final;
 
-    //! \throw wire::exception if invalid next token invalid enum. \return Index in `enums`.
-    std::size_t enumeration(span<char const* const> enums) override final;
-
-
     //! \throw wire::exception if next token not `[`.
     std::size_t start_array() override final;
 
@@ -98,27 +94,10 @@ namespace wire
     bool key(span<const key_map> map, std::size_t&, std::size_t& index) override final;
   };
 
-
-  // Don't call `read` directly in this namespace, do it from `wire_read`.
-
   template<typename T>
   expect<T> protobuf::from_bytes(byte_slice&& bytes)
   {
-    protobuf_reader source{std::move(bytes)};
-    return wire_read::to<T>(source);
-  }
-
-  // specialization prevents type "downgrading" to base type in cpp files
-
-  template<typename T>
-  inline void array(protobuf_reader& source, T& dest)
-  {
-    wire_read::array(source, dest);
-  }
-
-  template<typename... T>
-  inline void object(protobuf_reader& source, T... fields)
-  {
-    wire_read::object(source, wire_read::tracker<T>{std::move(fields)}...);
+    return wire_read::from_bytes<input_type, T>(std::move(bytes));
   }
 } // wire
+

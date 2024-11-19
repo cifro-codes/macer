@@ -35,14 +35,23 @@ void wire::reader::increment_depth()
     WIRE_DLOG_THROW(error::schema::maximum_depth);
 }
 
-[[noreturn]] void wire::integer::throw_exception(std::intmax_t source, std::intmax_t min)
+[[noreturn]] void wire::integer::throw_exception(std::intmax_t source, std::intmax_t min, std::intmax_t max)
 {
-  const std::string msg = std::to_string(source) + " given when " + std::to_string(min) + " is minimum permitted";
-  WIRE_DLOG_THROW(error::schema::larger_integer, msg.c_str());
+  static_assert(
+    std::numeric_limits<std::intmax_t>::max() <= std::numeric_limits<std::uintmax_t>::max(),
+    "expected intmax_t::max <= uintmax_t::max"
+  );
+  if (source < 0)
+  {
+    const std::string msg = std::to_string(source) + " given when " + std::to_string(min) + " is minimum permitted";
+    WIRE_DLOG_THROW(error::schema::larger_integer, msg.c_str());
+  }
+  else
+    throw_exception(std::uintmax_t(source), std::uintmax_t(max));
 }
 [[noreturn]] void wire::integer::throw_exception(std::uintmax_t source, std::uintmax_t max)
 {
-  const std::string msg = std::to_string(source) + " given when " + std::to_string(max) + " is minimum permitted";
+  const std::string msg = std::to_string(source) + " given when " + std::to_string(max) + " is maximum permitted";
   WIRE_DLOG_THROW(error::schema::smaller_integer, msg.c_str());
 }
 
