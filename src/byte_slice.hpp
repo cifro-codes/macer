@@ -31,8 +31,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string>
-#include <vector>
+//#include <string>
+//#include <vector>
 
 #include "span.hpp"
 
@@ -103,11 +103,13 @@
     //! Scatter-gather (copy) multiple `sources` into a single allocated slice.
     explicit byte_slice(std::initializer_list<span<const std::uint8_t>> sources);
 
-    //! Convert `buffer` into a slice using one allocation for shared count.
-    explicit byte_slice(std::vector<std::uint8_t>&& buffer);
+    // std::string and std::vector were removed to reduce binary size
 
     //! Convert `buffer` into a slice using one allocation for shared count.
-    explicit byte_slice(std::string&& buffer);
+    //explicit byte_slice(std::vector<std::uint8_t>&& buffer);
+
+    //! Convert `buffer` into a slice using one allocation for shared count.
+    //explicit byte_slice(std::string&& buffer);
 
     //! Convert `stream` into a slice with zero allocations.
     explicit byte_slice(byte_stream&& stream, bool shrink = true);

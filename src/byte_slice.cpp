@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -160,13 +161,15 @@ namespace
 
       for (const auto& source : sources)
       {
-        std::memcpy(out.data(), source.data(), source.size());
+        std::memcpy(out.data(), source.data(), std::min(out.size(), source.size()));
         if (out.remove_prefix(source.size()) < source.size())
           throw std::bad_alloc{}; // size_t overflow on space_needed
       }
       storage_ = std::move(storage);
     }
   }
+/*
+  std::string and std::vector were removed to reduce binary size
 
   byte_slice::byte_slice(std::string&& buffer)
     : byte_slice(adapt_buffer{}, std::move(buffer))
@@ -174,7 +177,7 @@ namespace
 
   byte_slice::byte_slice(std::vector<std::uint8_t>&& buffer)
     : byte_slice(adapt_buffer{}, std::move(buffer))
-  {}
+  {}*/
 
   byte_slice::byte_slice(byte_stream&& stream, const bool shrink)
     : storage_(nullptr), portion_(stream.data(), stream.size())
