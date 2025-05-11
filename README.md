@@ -16,16 +16,11 @@ password, making backup of high-entropy passwords easier.
 
 Detractors will point out that macer is limited to 125.8 bit strength  due to
 x25519 usage. HOWEVER, an attacker has to first obtain a 252-bit x25519
-public-key to crack the 252-bit secret key, AND the public-key cracking method
-_cannot be parallelized_. Brute-force searching 12 words/128-bits can be
-parallelized, making 18/24 macer words useful in some contexts (thus the option
-for 18/24 words). The situation is analogous to the common usage of
-x25519+AES-256 instead of x25519+AES-128. See [security section](#security) for
-further analysis.
-
-> Brute-force of x25519 public-keys can be sped up by multi-core CPUs, but the
-> process is 2^252. Whereas the 2^125.8 cracking method for x25519 (rho) can
-> only be run in serial. Again, see [security section](#security) for details.
+public-key to crack the 252-bit secret key. Obtaining a x25519 public-key
+requires a compromised host connected to the Trezor, then getting the user to
+enter the PIN+passphrase (or else tricking the user to just giving the
+public-key somehow). Getting an unrelated x25519 public-key (via some coin),
+is not sufficient to run a rho-method attack.
 
 > macer can also output the raw 32-byte binary secret, but users must be
 > careful about the newline character stopping `stdin` reading in some
@@ -129,27 +124,7 @@ the input into SHA-256.
 The major CAVEAT is that an attacker who compromises a host machine of the user
 can request a x25519 public key from the Trezor without confirmation on the
 device. This will (assuming the attacker can determine URIs in use) lower the
-security of associated passwords to ~125.8 bits. HOWEVER, cracking an x25519
-public key with rho cannot be parallelized where symmetric key brute forcing
-can be parallelized. If just 12 Bip-39 words are used for AES encryption, then
-the time required to brute force is `2^128/p` where `p` is the number of
-parallel "circuits" (CPU cores) used for searching. In contrast, the time for
-the rho method for x25519 public-key cracking will take `2^126/1` because the
-algorithm is serial. This
-[stackoverflow post](https://crypto.stackexchange.com/questions/59762/after-ecdh-with-curve25519-is-it-pointless-to-use-anything-stronger-than-aes-12)
-is related as x25519 is best paired with AES-256.
-
-If your password gets fed into `argon2` (or similar), this will increase the
-cost of a search circuit, but doesn't increase the search space. Whether
-12-words is sufficient in this context is up to the reader. 18/24 words does
-have some merit - an attacker is better of with a brute-force search of (1)
-12-words if they can afford 8+ search circuits, (2) 18-words if they can afford
-2^67+ search circuits, and (3) 24-words if they can afford 2^127+ search
-circuits. The analysis gets more complicated when multi-key cracking gets
-introduced, but brute-force searching does quite well in this context.
-
-> As a point of reference, a supercomputer in China can reduce brute-force
-> search _time_ by 2^23. Custom built machines can likely do better.
+security of associated passwords to ~125.8 bits.
 
 Lastly, users of 12-seeds into the Trezor probably won't find 24 macer words
 particularly useful. They should likely stick to 12 macer words.
